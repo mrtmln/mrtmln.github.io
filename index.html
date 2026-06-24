@@ -3,232 +3,331 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Interactive 3D Atom</title>
+<title>Atomized — Interactive 3D Atom Explorer</title>
 <style>
   :root {
-    --bg-0: #05060f;
-    --bg-1: #0d1230;
-    --panel: rgba(16, 20, 48, 0.72);
-    --panel-border: rgba(120, 160, 255, 0.25);
-    --text: #e8ecff;
-    --muted: #94a0d4;
-    --accent: #5fb0ff;
-    --accent-2: #ff7ad9;
+    --bg-0:#04050d; --bg-1:#0a0f28;
+    --panel:rgba(14,18,42,0.74);
+    --panel-2:rgba(20,26,58,0.9);
+    --bd:rgba(120,160,255,0.22);
+    --bd-strong:rgba(120,160,255,0.45);
+    --text:#e9edff; --muted:#8e9bd6; --dim:#5b6699;
+    --accent:#5fb0ff; --accent-2:#ff7ad9; --good:#54e3a8; --warn:#ffcf5f; --bad:#ff6b7d;
+    --radio:#9dff5f;
   }
+  *{box-sizing:border-box;}
+  html,body{margin:0;height:100%;overflow:hidden;background:radial-gradient(circle at 50% 28%,var(--bg-1),var(--bg-0) 72%);color:var(--text);font-family:"Segoe UI",system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased;}
+  canvas#scene{position:fixed;inset:0;display:block;cursor:grab;}
+  canvas#scene:active{cursor:grabbing;}
+  .panel{position:fixed;backdrop-filter:blur(16px) saturate(1.3);background:var(--panel);border:1px solid var(--bd);border-radius:16px;box-shadow:0 14px 48px rgba(0,0,0,.5);}
+  h1,h2,h3,h4{margin:0;font-weight:600;}
+  .scroll{overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--bd-strong) transparent;}
+  .scroll::-webkit-scrollbar{width:8px;}
+  .scroll::-webkit-scrollbar-thumb{background:var(--bd-strong);border-radius:8px;}
 
-  * { box-sizing: border-box; }
+  /* ---- Left control deck ---- */
+  #deck{top:16px;left:16px;width:300px;max-height:calc(100vh - 32px);padding:0;display:flex;flex-direction:column;}
+  #deckHead{padding:16px 18px 12px;border-bottom:1px solid var(--bd);}
+  #deckHead h1{font-size:17px;letter-spacing:.4px;display:flex;align-items:center;gap:8px;}
+  #deckHead h1 .dot{width:10px;height:10px;border-radius:50%;background:radial-gradient(circle at 30% 30%,#fff,var(--accent-2));box-shadow:0 0 12px var(--accent-2);}
+  #deckHead .sub{margin-top:3px;font-size:11px;color:var(--muted);}
+  #deckBody{padding:14px 18px 18px;}
+  .group{margin-bottom:16px;}
+  .group>.gl{font-size:10.5px;letter-spacing:.8px;text-transform:uppercase;color:var(--dim);margin-bottom:9px;display:flex;align-items:center;gap:6px;}
+  .group>.gl::after{content:"";flex:1;height:1px;background:var(--bd);}
+  .field{margin-bottom:13px;}
+  .field label{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:6px;}
+  .field label .v{color:var(--accent);font-variant-numeric:tabular-nums;font-weight:600;}
+  input[type=range]{-webkit-appearance:none;width:100%;height:5px;border-radius:5px;background:linear-gradient(90deg,var(--accent),var(--accent-2));outline:none;}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:15px;height:15px;border-radius:50%;background:#fff;border:2px solid var(--accent);cursor:pointer;box-shadow:0 0 8px rgba(95,176,255,.9);}
+  input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;background:#fff;border:2px solid var(--accent);cursor:pointer;}
+  .btnrow{display:flex;flex-wrap:wrap;gap:7px;}
+  .tbtn{flex:1 1 auto;min-width:62px;padding:8px 9px;font-size:11px;border-radius:9px;border:1px solid var(--bd);background:rgba(255,255,255,.04);color:var(--text);cursor:pointer;transition:.16s;text-align:center;}
+  .tbtn:hover{background:rgba(95,176,255,.16);}
+  .tbtn.active{background:linear-gradient(120deg,var(--accent),var(--accent-2));border-color:transparent;color:#06081c;font-weight:700;}
+  .seg{display:flex;gap:0;border:1px solid var(--bd);border-radius:10px;overflow:hidden;}
+  .seg button{flex:1;padding:9px 6px;font-size:11px;background:transparent;border:none;border-right:1px solid var(--bd);color:var(--muted);cursor:pointer;transition:.16s;}
+  .seg button:last-child{border-right:none;}
+  .seg button.active{background:linear-gradient(120deg,var(--accent),var(--accent-2));color:#06081c;font-weight:700;}
+  .seg button:hover:not(.active){background:rgba(95,176,255,.12);color:var(--text);}
 
-  html, body {
-    margin: 0;
-    height: 100%;
-    overflow: hidden;
-    background: radial-gradient(circle at 50% 30%, var(--bg-1), var(--bg-0) 70%);
-    color: var(--text);
-    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
-    -webkit-font-smoothing: antialiased;
-  }
+  /* ---- Right info card ---- */
+  #info{top:16px;right:16px;width:286px;max-height:calc(100vh - 32px);padding:0;display:flex;flex-direction:column;}
+  #info .ihead{display:flex;gap:14px;padding:16px 18px;border-bottom:1px solid var(--bd);align-items:center;}
+  #symBox{width:70px;height:70px;border-radius:14px;display:flex;flex-direction:column;justify-content:center;align-items:center;color:#06081c;flex:none;position:relative;overflow:hidden;}
+  #symBox .z{position:absolute;top:5px;left:7px;font-size:11px;font-weight:700;opacity:.8;}
+  #symBox .m{position:absolute;bottom:4px;right:7px;font-size:9px;font-weight:600;opacity:.75;}
+  #symBox .s{font-size:30px;font-weight:800;line-height:1;}
+  #ititle h2{font-size:19px;}
+  #ititle .cat{margin-top:4px;font-size:11px;padding:2px 8px;border-radius:20px;display:inline-block;font-weight:600;}
+  #ititle .grp{margin-top:6px;font-size:11px;color:var(--muted);}
+  #ibody{padding:14px 18px 18px;}
+  .kv{display:flex;justify-content:space-between;font-size:12px;padding:5px 0;border-bottom:1px dashed rgba(255,255,255,.06);}
+  .kv .k{color:var(--muted);}
+  .kv .val{font-weight:600;text-align:right;}
+  .cfg{margin-top:10px;font-size:12.5px;line-height:1.7;font-family:"Cascadia Code",Menlo,monospace;color:#cfe0ff;word-spacing:2px;}
+  .cfg sup{color:var(--accent);}
+  .shells{margin-top:10px;display:flex;flex-wrap:wrap;gap:5px;}
+  .shellchip{font-size:10.5px;padding:3px 7px;border-radius:7px;background:rgba(95,176,255,.12);border:1px solid var(--bd);}
+  .shellchip b{color:var(--accent);}
+  .tag{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:20px;margin-top:8px;margin-right:5px;}
+  .tag.radio{background:rgba(157,255,95,.16);color:var(--radio);border:1px solid rgba(157,255,95,.4);}
+  .tag.ion{background:rgba(255,207,95,.16);color:var(--warn);border:1px solid rgba(255,207,95,.4);}
+  .tag.fact{background:rgba(95,176,255,.12);color:var(--accent);border:1px solid var(--bd);}
 
-  #scene { position: fixed; inset: 0; display: block; }
+  /* ---- Bottom-left stats + spectrum ---- */
+  #stats{bottom:16px;left:16px;padding:13px 16px;display:flex;flex-direction:column;gap:11px;width:330px;}
+  #counts{display:flex;gap:18px;}
+  #counts .st{text-align:center;flex:1;}
+  #counts .st .n{font-size:21px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums;}
+  #counts .st .l{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-top:5px;}
+  .n.p{color:#ff6b8a;} .n.n{color:#cfd4e8;} .n.e{color:var(--accent);} .n.c{color:var(--warn);} .n.a{color:var(--good);}
+  #spectrumWrap{display:flex;flex-direction:column;gap:4px;}
+  #spectrumWrap .sl{font-size:9.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.6px;display:flex;justify-content:space-between;}
+  #spectrum{width:100%;height:34px;border-radius:8px;display:block;border:1px solid var(--bd);}
 
-  .panel {
-    position: fixed;
-    backdrop-filter: blur(14px);
-    background: var(--panel);
-    border: 1px solid var(--panel-border);
-    border-radius: 16px;
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
-  }
+  /* ---- Bottom-right action dock ---- */
+  #dock{bottom:16px;right:16px;padding:10px;display:flex;gap:7px;flex-wrap:wrap;max-width:300px;justify-content:flex-end;}
+  .act{width:42px;height:42px;border-radius:11px;border:1px solid var(--bd);background:rgba(255,255,255,.04);color:var(--text);cursor:pointer;font-size:17px;display:grid;place-items:center;transition:.16s;position:relative;}
+  .act:hover{background:rgba(95,176,255,.18);transform:translateY(-2px);}
+  .act.on{background:linear-gradient(120deg,var(--accent),var(--accent-2));color:#06081c;border-color:transparent;}
+  .act .tt{position:absolute;bottom:50px;right:0;background:var(--panel-2);border:1px solid var(--bd);padding:4px 8px;border-radius:7px;font-size:10.5px;white-space:nowrap;opacity:0;pointer-events:none;transition:.16s;color:var(--text);}
+  .act:hover .tt{opacity:1;}
 
-  /* Controls panel */
-  #controls {
-    top: 20px;
-    left: 20px;
-    width: 280px;
-    padding: 20px;
-  }
+  /* ---- FPS / readout ---- */
+  #hud{position:fixed;top:16px;left:50%;transform:translateX(-50%);display:flex;gap:8px;font-size:11px;}
+  #hud .pill{background:var(--panel);border:1px solid var(--bd);border-radius:20px;padding:5px 12px;backdrop-filter:blur(10px);font-variant-numeric:tabular-nums;}
+  #hud .pill b{color:var(--accent);}
 
-  #controls h1 {
-    margin: 0 0 4px;
-    font-size: 18px;
-    letter-spacing: 0.5px;
-  }
-  #controls .sub {
-    margin: 0 0 18px;
-    font-size: 12px;
-    color: var(--muted);
-  }
+  /* ---- Modals ---- */
+  .modal{position:fixed;inset:0;background:rgba(2,4,12,.74);backdrop-filter:blur(6px);display:none;align-items:center;justify-content:center;z-index:50;padding:20px;}
+  .modal.open{display:flex;}
+  .modal .box{background:var(--panel-2);border:1px solid var(--bd-strong);border-radius:18px;max-width:min(940px,96vw);max-height:92vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 24px 80px rgba(0,0,0,.6);}
+  .modal .mh{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--bd);}
+  .modal .mh h2{font-size:17px;}
+  .modal .mh .x{width:32px;height:32px;border-radius:9px;border:1px solid var(--bd);background:transparent;color:var(--text);cursor:pointer;font-size:16px;}
+  .modal .mh .x:hover{background:rgba(255,107,125,.2);}
+  .modal .mb{padding:18px 20px;overflow:auto;}
 
-  .field { margin-bottom: 16px; }
-  .field label {
-    display: flex;
-    justify-content: space-between;
-    font-size: 12px;
-    color: var(--muted);
-    margin-bottom: 7px;
-    text-transform: uppercase;
-    letter-spacing: 0.6px;
-  }
-  .field label .val { color: var(--accent); font-variant-numeric: tabular-nums; }
+  /* ---- Periodic table ---- */
+  #ptSearch{width:100%;padding:9px 12px;border-radius:10px;border:1px solid var(--bd);background:rgba(0,0,0,.25);color:var(--text);font-size:13px;margin-bottom:14px;outline:none;}
+  #ptSearch:focus{border-color:var(--accent);}
+  #ptGrid{display:grid;grid-template-columns:repeat(18,minmax(0,1fr));gap:3px;}
+  .cell{aspect-ratio:1;border-radius:5px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;border:1px solid rgba(255,255,255,.08);transition:.12s;position:relative;min-height:30px;}
+  .cell:hover{transform:scale(1.16);z-index:5;border-color:#fff;box-shadow:0 0 14px rgba(255,255,255,.4);}
+  .cell.sel{outline:2px solid #fff;outline-offset:1px;z-index:4;}
+  .cell.dim{opacity:.16;}
+  .cell .cz{font-size:7px;opacity:.7;line-height:1;position:absolute;top:2px;left:3px;}
+  .cell .cs{font-size:12px;font-weight:800;line-height:1;}
+  .cell .cn{font-size:6px;opacity:.85;line-height:1;margin-top:1px;overflow:hidden;max-width:100%;white-space:nowrap;text-overflow:ellipsis;}
+  #ptLegend{display:flex;flex-wrap:wrap;gap:8px 14px;margin-top:16px;font-size:11px;color:var(--muted);}
+  #ptLegend .lg{display:flex;align-items:center;gap:6px;}
+  #ptLegend .sw{width:13px;height:13px;border-radius:4px;}
 
-  input[type="range"] {
-    -webkit-appearance: none;
-    width: 100%;
-    height: 5px;
-    border-radius: 4px;
-    background: linear-gradient(90deg, var(--accent), var(--accent-2));
-    outline: none;
-  }
-  input[type="range"]::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    width: 16px; height: 16px;
-    border-radius: 50%;
-    background: #fff;
-    border: 2px solid var(--accent);
-    cursor: pointer;
-    box-shadow: 0 0 8px rgba(95, 176, 255, 0.8);
-  }
-  input[type="range"]::-moz-range-thumb {
-    width: 16px; height: 16px;
-    border-radius: 50%;
-    background: #fff;
-    border: 2px solid var(--accent);
-    cursor: pointer;
-  }
+  /* ---- Help & quiz ---- */
+  .kbd{display:inline-block;min-width:20px;text-align:center;padding:2px 7px;border-radius:6px;background:rgba(255,255,255,.08);border:1px solid var(--bd);font-family:monospace;font-size:11px;margin-right:8px;}
+  .helprow{display:flex;align-items:center;font-size:13px;padding:7px 0;border-bottom:1px dashed rgba(255,255,255,.08);}
+  .helprow span{color:var(--muted);}
+  #quizCard{text-align:center;}
+  #quizCard .q{font-size:15px;color:var(--muted);margin-bottom:6px;}
+  #quizCard .big{font-size:40px;font-weight:800;margin:6px 0;}
+  #quizCard .score{font-size:13px;color:var(--good);margin-top:8px;}
+  #quizFeedback{font-size:14px;font-weight:700;min-height:20px;margin-top:10px;}
 
-  .toggles { display: flex; flex-wrap: wrap; gap: 8px; }
-  .toggle-btn {
-    flex: 1 1 auto;
-    padding: 9px 10px;
-    font-size: 12px;
-    border-radius: 10px;
-    border: 1px solid var(--panel-border);
-    background: rgba(255, 255, 255, 0.04);
-    color: var(--text);
-    cursor: pointer;
-    transition: all 0.18s ease;
-  }
-  .toggle-btn:hover { background: rgba(95, 176, 255, 0.15); }
-  .toggle-btn.active {
-    background: linear-gradient(120deg, var(--accent), var(--accent-2));
-    border-color: transparent;
-    color: #06081c;
-    font-weight: 600;
-  }
+  #toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--panel-2);border:1px solid var(--bd-strong);padding:10px 20px;border-radius:12px;font-size:13px;opacity:0;pointer-events:none;transition:.25s;z-index:60;}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 
-  /* Element selector */
-  #elements {
-    top: 20px;
-    right: 20px;
-    padding: 14px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    width: 150px;
-  }
-  #elements .head { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px; padding: 2px 4px; }
-  .elem-btn {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 9px 12px;
-    border-radius: 10px;
-    border: 1px solid transparent;
-    background: rgba(255, 255, 255, 0.04);
-    color: var(--text);
-    cursor: pointer;
-    transition: all 0.18s ease;
-  }
-  .elem-btn:hover { background: rgba(255, 122, 217, 0.14); }
-  .elem-btn.active { border-color: var(--accent); background: rgba(95, 176, 255, 0.18); }
-  .elem-btn .sym {
-    width: 30px; height: 30px;
-    display: grid; place-items: center;
-    border-radius: 8px;
-    font-weight: 700;
-    background: linear-gradient(135deg, var(--accent), var(--accent-2));
-    color: #06081c;
-    font-size: 13px;
-  }
-  .elem-btn .nm { font-size: 13px; }
-  .elem-btn .nm small { display: block; color: var(--muted); font-size: 10px; }
-
-  /* Info readout */
-  #info {
-    bottom: 20px;
-    left: 20px;
-    padding: 14px 18px;
-    display: flex;
-    gap: 22px;
-  }
-  #info .stat { text-align: center; }
-  #info .stat .num { font-size: 22px; font-weight: 700; line-height: 1; }
-  #info .stat .lbl { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.7px; margin-top: 5px; }
-  .num.p { color: #ff6b8a; }
-  .num.n { color: #c8c8d8; }
-  .num.e { color: var(--accent); }
-
-  #hint {
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    font-size: 11px;
-    color: var(--muted);
-    text-align: right;
-    pointer-events: none;
-  }
-
-  @media (max-width: 720px) {
-    #controls { width: calc(100% - 40px); }
-    #elements { flex-direction: row; flex-wrap: wrap; width: auto; left: 20px; right: 20px; top: auto; bottom: 110px; }
-    #elements .head { width: 100%; }
-    #info { font-size: 11px; }
+  @media (max-width:860px){
+    #deck,#info{width:min(300px,calc(100vw - 32px));}
+    #info{max-height:46vh;}
+    #stats{display:none;}
   }
 </style>
 </head>
 <body>
   <canvas id="scene"></canvas>
 
-  <div id="controls" class="panel">
-    <h1>Interactive 3D Atom</h1>
-    <p class="sub">Drag to orbit · scroll to zoom</p>
+  <div id="hud">
+    <div class="pill">FPS <b id="fps">60</b></div>
+    <div class="pill"><b id="hudName">Carbon</b></div>
+    <div class="pill"><span id="hudMode">Orbital</span></div>
+  </div>
 
-    <div class="field">
-      <label>Electron Speed <span class="val" id="speedVal">1.0×</span></label>
-      <input type="range" id="speed" min="0" max="4" step="0.05" value="1" />
+  <!-- LEFT DECK -->
+  <div id="deck" class="panel">
+    <div id="deckHead">
+      <h1><span class="dot"></span> Atomized</h1>
+      <div class="sub">Interactive 3D atom explorer · drag to orbit, scroll to zoom</div>
     </div>
+    <div id="deckBody" class="scroll">
+      <div class="group">
+        <div class="gl">Visualization mode</div>
+        <div class="seg" id="modeSeg">
+          <button data-mode="orbital" class="active">Orbital</button>
+          <button data-mode="bohr">Bohr</button>
+          <button data-mode="cloud">Cloud</button>
+        </div>
+      </div>
 
-    <div class="field">
-      <label>Nucleus Glow <span class="val" id="glowVal">100%</span></label>
-      <input type="range" id="glow" min="0" max="2" step="0.05" value="1" />
-    </div>
+      <div class="group">
+        <div class="gl">Motion</div>
+        <div class="field"><label>Electron speed <span class="v" id="vSpeed">1.00×</span></label><input type="range" id="rSpeed" min="0" max="5" step="0.05" value="1"></div>
+        <div class="field"><label>Trail length <span class="v" id="vTrail">40</span></label><input type="range" id="rTrail" min="0" max="120" step="2" value="40"></div>
+        <div class="field"><label>Auto-spin <span class="v" id="vSpin">0.15</span></label><input type="range" id="rSpin" min="0" max="1.2" step="0.01" value="0.15"></div>
+      </div>
 
-    <div class="field">
-      <label>Display</label>
-      <div class="toggles">
-        <button class="toggle-btn active" id="tOrbits">Orbit Paths</button>
-        <button class="toggle-btn active" id="tSpin">Auto-Spin</button>
-        <button class="toggle-btn active" id="tTrails">Trails</button>
+      <div class="group">
+        <div class="gl">Appearance</div>
+        <div class="field"><label>Nucleus glow <span class="v" id="vGlow">100%</span></label><input type="range" id="rGlow" min="0" max="2.5" step="0.05" value="1"></div>
+        <div class="field"><label>Nucleus size <span class="v" id="vNuc">100%</span></label><input type="range" id="rNuc" min="0.4" max="2.2" step="0.05" value="1"></div>
+        <div class="field"><label>Bloom intensity <span class="v" id="vBloom">70%</span></label><input type="range" id="rBloom" min="0" max="2" step="0.05" value="0.7"></div>
+      </div>
+
+      <div class="group">
+        <div class="gl">Toggles</div>
+        <div class="btnrow">
+          <button class="tbtn active" id="tOrbits">Orbit paths</button>
+          <button class="tbtn active" id="tLabels">Shell labels</button>
+          <button class="tbtn active" id="tStars">Starfield</button>
+          <button class="tbtn" id="tSubcolor">Subshell color</button>
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="gl">Nucleus composition</div>
+        <div class="field"><label>Neutrons (isotope) <span class="v" id="vNeut">6</span></label><input type="range" id="rNeut" min="0" max="40" step="1" value="6"></div>
+        <div class="field"><label>Electrons (ionize) <span class="v" id="vElec">6</span></label><input type="range" id="rElec" min="1" max="20" step="1" value="6"></div>
+        <div class="btnrow">
+          <button class="tbtn" id="bNeutReset">Reset isotope</button>
+          <button class="tbtn" id="bElecReset">Neutralize</button>
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="gl">Background</div>
+        <div class="seg" id="bgSeg">
+          <button data-bg="space" class="active">Space</button>
+          <button data-bg="void">Void</button>
+          <button data-bg="grid">Grid</button>
+        </div>
       </div>
     </div>
   </div>
 
-  <div id="elements" class="panel">
-    <div class="head">Element</div>
-  </div>
-
+  <!-- RIGHT INFO -->
   <div id="info" class="panel">
-    <div class="stat"><div class="num p" id="protons">1</div><div class="lbl">Protons</div></div>
-    <div class="stat"><div class="num n" id="neutrons">0</div><div class="lbl">Neutrons</div></div>
-    <div class="stat"><div class="num e" id="electrons">1</div><div class="lbl">Electrons</div></div>
+    <div class="ihead">
+      <div id="symBox"><span class="z" id="iz">6</span><span class="s" id="is">C</span><span class="m" id="im">12</span></div>
+      <div id="ititle">
+        <h2 id="iname">Carbon</h2>
+        <span class="cat" id="icat">Nonmetal</span>
+        <div class="grp" id="igrp">Period 2 · Group 14</div>
+      </div>
+    </div>
+    <div id="ibody" class="scroll">
+      <div class="kv"><span class="k">Atomic mass</span><span class="val" id="imass">12.011 u</span></div>
+      <div class="kv"><span class="k">Mass number (A)</span><span class="val" id="iA">12</span></div>
+      <div class="kv"><span class="k">State @ STP</span><span class="val" id="istate">Solid</span></div>
+      <div class="kv"><span class="k">Net charge</span><span class="val" id="icharge">0 (neutral)</span></div>
+      <div class="kv"><span class="k">Valence (outer e⁻)</span><span class="val" id="ivalence">4</span></div>
+      <div id="itags"></div>
+      <div class="cfg" id="icfg"></div>
+      <div class="shells" id="ishells"></div>
+    </div>
   </div>
 
-  <div id="hint">Built with Three.js</div>
+  <!-- BOTTOM-LEFT STATS -->
+  <div id="stats" class="panel">
+    <div id="counts">
+      <div class="st"><div class="n p" id="cP">6</div><div class="l">Protons</div></div>
+      <div class="st"><div class="n n" id="cN">6</div><div class="l">Neutrons</div></div>
+      <div class="st"><div class="n e" id="cE">6</div><div class="l">Electrons</div></div>
+      <div class="st"><div class="n c" id="cC">0</div><div class="l">Charge</div></div>
+      <div class="st"><div class="n a" id="cA">12</div><div class="l">Mass #</div></div>
+    </div>
+    <div id="spectrumWrap">
+      <div class="sl"><span>Emission spectrum (illustrative)</span><span>400–700 nm</span></div>
+      <canvas id="spectrum" width="600" height="34"></canvas>
+    </div>
+  </div>
+
+  <!-- ACTION DOCK -->
+  <div id="dock" class="panel">
+    <button class="act" id="aPeriodic"><span>⊞</span><span class="tt">Periodic table (P)</span></button>
+    <button class="act" id="aRandom"><span>🎲</span><span class="tt">Random element (N)</span></button>
+    <button class="act" id="aExcite"><span>⚡</span><span class="tt">Excite atom (E)</span></button>
+    <button class="act" id="aTour"><span>↻</span><span class="tt">Auto-tour (T)</span></button>
+    <button class="act" id="aPause"><span>⏸</span><span class="tt">Pause (Space)</span></button>
+    <button class="act" id="aReset"><span>⊕</span><span class="tt">Reset camera (R)</span></button>
+    <button class="act" id="aAudio"><span>🔇</span><span class="tt">Sound (A)</span></button>
+    <button class="act" id="aShot"><span>📷</span><span class="tt">Screenshot (S)</span></button>
+    <button class="act" id="aQuiz"><span>🎯</span><span class="tt">Quiz mode (Q)</span></button>
+    <button class="act" id="aFull"><span>⛶</span><span class="tt">Fullscreen (F)</span></button>
+    <button class="act" id="aHelp"><span>?</span><span class="tt">Help (H)</span></button>
+  </div>
+
+  <!-- PERIODIC TABLE MODAL -->
+  <div class="modal" id="ptModal">
+    <div class="box">
+      <div class="mh"><h2>Periodic table — pick an element</h2><button class="x" data-close="ptModal">✕</button></div>
+      <div class="mb">
+        <input id="ptSearch" placeholder="Search by name, symbol, or atomic number…" autocomplete="off">
+        <div id="ptGrid"></div>
+        <div id="ptLegend"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HELP MODAL -->
+  <div class="modal" id="helpModal">
+    <div class="box">
+      <div class="mh"><h2>Controls & shortcuts</h2><button class="x" data-close="helpModal">✕</button></div>
+      <div class="mb" style="max-width:520px">
+        <div class="helprow"><span><span class="kbd">drag</span></span><span>Orbit the camera around the atom</span></div>
+        <div class="helprow"><span><span class="kbd">scroll</span></span><span>Zoom in / out</span></div>
+        <div class="helprow"><span><span class="kbd">click</span></span><span>Excite the atom (emits photons)</span></div>
+        <div class="helprow"><span><span class="kbd">1</span><span class="kbd">2</span><span class="kbd">3</span></span><span>Orbital / Bohr / Cloud mode</span></div>
+        <div class="helprow"><span><span class="kbd">P</span></span><span>Open periodic table</span></div>
+        <div class="helprow"><span><span class="kbd">N</span></span><span>Random element</span></div>
+        <div class="helprow"><span><span class="kbd">←</span><span class="kbd">→</span></span><span>Previous / next element</span></div>
+        <div class="helprow"><span><span class="kbd">E</span></span><span>Excite the atom</span></div>
+        <div class="helprow"><span><span class="kbd">T</span></span><span>Toggle auto-tour</span></div>
+        <div class="helprow"><span><span class="kbd">Q</span></span><span>Quiz mode</span></div>
+        <div class="helprow"><span><span class="kbd">Space</span></span><span>Pause / resume animation</span></div>
+        <div class="helprow"><span><span class="kbd">R</span></span><span>Reset camera</span></div>
+        <div class="helprow"><span><span class="kbd">A</span></span><span>Toggle ambient sound</span></div>
+        <div class="helprow"><span><span class="kbd">S</span></span><span>Screenshot (PNG)</span></div>
+        <div class="helprow"><span><span class="kbd">F</span></span><span>Fullscreen</span></div>
+        <div class="helprow"><span><span class="kbd">H</span></span><span>This help</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- QUIZ MODAL -->
+  <div class="modal" id="quizModal">
+    <div class="box">
+      <div class="mh"><h2>Quiz — name that element</h2><button class="x" data-close="quizModal">✕</button></div>
+      <div class="mb" style="max-width:460px">
+        <div id="quizCard">
+          <div class="q">Which element has this electron configuration & atomic number?</div>
+          <div class="big" id="quizZ">Z = 6</div>
+          <div class="cfg" id="quizCfg" style="justify-content:center;text-align:center"></div>
+          <div id="quizChoices" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px"></div>
+          <div id="quizFeedback"></div>
+          <div class="score" id="quizScore">Score: 0 / 0</div>
+          <button class="tbtn" id="quizNext" style="margin-top:14px;max-width:160px;margin-inline:auto">Next question →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast"></div>
 
 <script type="importmap">
 {
-  "imports": {
-    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  "imports":{
+    "three":"https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"
   }
 }
 </script>
@@ -236,305 +335,714 @@
 <script type="module">
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 
-// ---------- Element data ----------
-// shells = electrons per shell (defines orbit rings)
-const ELEMENTS = [
-  { sym: 'H',  name: 'Hydrogen',  protons: 1,  neutrons: 0,  shells: [1] },
-  { sym: 'He', name: 'Helium',    protons: 2,  neutrons: 2,  shells: [2] },
-  { sym: 'C',  name: 'Carbon',    protons: 6,  neutrons: 6,  shells: [2, 4] },
-  { sym: 'O',  name: 'Oxygen',    protons: 8,  neutrons: 8,  shells: [2, 6] },
-  { sym: 'Ne', name: 'Neon',      protons: 10, neutrons: 10, shells: [2, 8] },
-  { sym: 'Si', name: 'Silicon',   protons: 14, neutrons: 14, shells: [2, 8, 4] },
-  { sym: 'Fe', name: 'Iron',      protons: 26, neutrons: 30, shells: [2, 8, 14, 2] },
-  { sym: 'Au', name: 'Gold',      protons: 79, neutrons: 118,shells: [2, 8, 18, 32, 18, 1] },
-];
+/* ============================================================
+   1. ELEMENT DATA — all 118 elements
+   ============================================================ */
+const RAW = `1|H|Hydrogen|1.008
+2|He|Helium|4.0026
+3|Li|Lithium|6.94
+4|Be|Beryllium|9.0122
+5|B|Boron|10.81
+6|C|Carbon|12.011
+7|N|Nitrogen|14.007
+8|O|Oxygen|15.999
+9|F|Fluorine|18.998
+10|Ne|Neon|20.180
+11|Na|Sodium|22.990
+12|Mg|Magnesium|24.305
+13|Al|Aluminium|26.982
+14|Si|Silicon|28.085
+15|P|Phosphorus|30.974
+16|S|Sulfur|32.06
+17|Cl|Chlorine|35.45
+18|Ar|Argon|39.948
+19|K|Potassium|39.098
+20|Ca|Calcium|40.078
+21|Sc|Scandium|44.956
+22|Ti|Titanium|47.867
+23|V|Vanadium|50.942
+24|Cr|Chromium|51.996
+25|Mn|Manganese|54.938
+26|Fe|Iron|55.845
+27|Co|Cobalt|58.933
+28|Ni|Nickel|58.693
+29|Cu|Copper|63.546
+30|Zn|Zinc|65.38
+31|Ga|Gallium|69.723
+32|Ge|Germanium|72.630
+33|As|Arsenic|74.922
+34|Se|Selenium|78.971
+35|Br|Bromine|79.904
+36|Kr|Krypton|83.798
+37|Rb|Rubidium|85.468
+38|Sr|Strontium|87.62
+39|Y|Yttrium|88.906
+40|Zr|Zirconium|91.224
+41|Nb|Niobium|92.906
+42|Mo|Molybdenum|95.95
+43|Tc|Technetium|98
+44|Ru|Ruthenium|101.07
+45|Rh|Rhodium|102.91
+46|Pd|Palladium|106.42
+47|Ag|Silver|107.87
+48|Cd|Cadmium|112.41
+49|In|Indium|114.82
+50|Sn|Tin|118.71
+51|Sb|Antimony|121.76
+52|Te|Tellurium|127.60
+53|I|Iodine|126.90
+54|Xe|Xenon|131.29
+55|Cs|Caesium|132.91
+56|Ba|Barium|137.33
+57|La|Lanthanum|138.91
+58|Ce|Cerium|140.12
+59|Pr|Praseodymium|140.91
+60|Nd|Neodymium|144.24
+61|Pm|Promethium|145
+62|Sm|Samarium|150.36
+63|Eu|Europium|151.96
+64|Gd|Gadolinium|157.25
+65|Tb|Terbium|158.93
+66|Dy|Dysprosium|162.50
+67|Ho|Holmium|164.93
+68|Er|Erbium|167.26
+69|Tm|Thulium|168.93
+70|Yb|Ytterbium|173.05
+71|Lu|Lutetium|174.97
+72|Hf|Hafnium|178.49
+73|Ta|Tantalum|180.95
+74|W|Tungsten|183.84
+75|Re|Rhenium|186.21
+76|Os|Osmium|190.23
+77|Ir|Iridium|192.22
+78|Pt|Platinum|195.08
+79|Au|Gold|196.97
+80|Hg|Mercury|200.59
+81|Tl|Thallium|204.38
+82|Pb|Lead|207.2
+83|Bi|Bismuth|208.98
+84|Po|Polonium|209
+85|At|Astatine|210
+86|Rn|Radon|222
+87|Fr|Francium|223
+88|Ra|Radium|226
+89|Ac|Actinium|227
+90|Th|Thorium|232.04
+91|Pa|Protactinium|231.04
+92|U|Uranium|238.03
+93|Np|Neptunium|237
+94|Pu|Plutonium|244
+95|Am|Americium|243
+96|Cm|Curium|247
+97|Bk|Berkelium|247
+98|Cf|Californium|251
+99|Es|Einsteinium|252
+100|Fm|Fermium|257
+101|Md|Mendelevium|258
+102|No|Nobelium|259
+103|Lr|Lawrencium|266
+104|Rf|Rutherfordium|267
+105|Db|Dubnium|268
+106|Sg|Seaborgium|269
+107|Bh|Bohrium|270
+108|Hs|Hassium|269
+109|Mt|Meitnerium|278
+110|Ds|Darmstadtium|281
+111|Rg|Roentgenium|282
+112|Cn|Copernicium|285
+113|Nh|Nihonium|286
+114|Fl|Flerovium|289
+115|Mc|Moscovium|290
+116|Lv|Livermorium|293
+117|Ts|Tennessine|294
+118|Og|Oganesson|294`;
 
-// ---------- Renderer / scene / camera ----------
-const canvas = document.getElementById('scene');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.setSize(window.innerWidth, window.innerHeight);
+const SUBSHELL_ORDER=[['1s',2],['2s',2],['2p',6],['3s',2],['3p',6],['4s',2],['3d',10],['4p',6],['5s',2],['4d',10],['5p',6],['6s',2],['4f',14],['5d',10],['6p',6],['7s',2],['5f',14],['6d',10],['7p',6]];
+const SHELL_LETTERS=['K','L','M','N','O','P','Q'];
 
-const scene = new THREE.Scene();
-
-const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
-camera.position.set(0, 6, 18);
-
-const controls = new OrbitControls(camera, canvas);
-controls.enableDamping = true;
-controls.dampingFactor = 0.06;
-controls.minDistance = 6;
-controls.maxDistance = 60;
-
-// ---------- Lighting ----------
-scene.add(new THREE.AmbientLight(0x88aaff, 0.5));
-const keyLight = new THREE.PointLight(0xffffff, 1.2, 0, 0);
-keyLight.position.set(10, 12, 14);
-scene.add(keyLight);
-
-// ---------- Starfield background ----------
-(function addStars() {
-  const count = 1400;
-  const positions = new Float32Array(count * 3);
-  for (let i = 0; i < count; i++) {
-    const r = 120 * Math.cbrt(Math.random()) + 40;
-    const theta = Math.random() * Math.PI * 2;
-    const phi = Math.acos(2 * Math.random() - 1);
-    positions[i * 3]     = r * Math.sin(phi) * Math.cos(theta);
-    positions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
-    positions[i * 3 + 2] = r * Math.cos(phi);
-  }
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-  const mat = new THREE.PointsMaterial({ color: 0x9fb4ff, size: 0.6, transparent: true, opacity: 0.7 });
-  scene.add(new THREE.Points(geo, mat));
-})();
-
-// ---------- Atom group ----------
-const atom = new THREE.Group();
-scene.add(atom);
-
-// Nucleus glow sprite
-function makeGlowTexture() {
-  const size = 128;
-  const c = document.createElement('canvas');
-  c.width = c.height = size;
-  const ctx = c.getContext('2d');
-  const g = ctx.createRadialGradient(size/2, size/2, 0, size/2, size/2, size/2);
-  g.addColorStop(0, 'rgba(255,180,120,1)');
-  g.addColorStop(0.3, 'rgba(255,120,160,0.6)');
-  g.addColorStop(1, 'rgba(255,120,160,0)');
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, size, size);
-  return new THREE.CanvasTexture(c);
+function configFor(count){
+  const out=[]; let rem=count;
+  for(const [label,cap] of SUBSHELL_ORDER){ if(rem<=0)break; const c=Math.min(cap,rem); out.push({n:+label[0],sub:label[1],label,count:c}); rem-=c; }
+  return out;
 }
-const glowSprite = new THREE.Sprite(new THREE.SpriteMaterial({
-  map: makeGlowTexture(), blending: THREE.AdditiveBlending, transparent: true, depthWrite: false
-}));
-glowSprite.scale.set(10, 10, 1);
-atom.add(glowSprite);
+function perElectron(count){
+  const arr=[]; let rem=count;
+  for(const [label,cap] of SUBSHELL_ORDER){ if(rem<=0)break; const c=Math.min(cap,rem); for(let i=0;i<c;i++)arr.push({n:+label[0],sub:label[1]}); rem-=c; }
+  return arr;
+}
+function shellsFromCount(count){
+  const map={}; perElectron(count).forEach(e=>map[e.n]=(map[e.n]||0)+1);
+  return Object.keys(map).map(Number).sort((a,b)=>a-b).map(n=>map[n]);
+}
 
-// reusable geometries / materials
-const protonGeo  = new THREE.SphereGeometry(0.42, 24, 24);
-const neutronGeo = new THREE.SphereGeometry(0.42, 24, 24);
-const protonMat  = new THREE.MeshStandardMaterial({ color: 0xff5577, emissive: 0x6a0f25, roughness: 0.35, metalness: 0.2 });
-const neutronMat = new THREE.MeshStandardMaterial({ color: 0xcfd4e8, emissive: 0x2a2f45, roughness: 0.4, metalness: 0.2 });
-const electronMat = new THREE.MeshStandardMaterial({ color: 0x6fd0ff, emissive: 0x1f6fff, emissiveIntensity: 1.4, roughness: 0.2 });
-const electronGeo = new THREE.SphereGeometry(0.28, 20, 20);
-
-let nucleusGroup = new THREE.Group();
-let electrons = [];   // { mesh, radius, speed, phase, axis(quaternion), trail }
-let orbitRings = [];
-
-const state = {
-  speed: 1, glow: 1,
-  showOrbits: true, spin: true, trails: true,
+const CAT_COLORS={
+  alkali:'#ff7a7a', alkaline:'#ffb86b', transition:'#ffd166', 'post-transition':'#7fd4c4',
+  metalloid:'#5ec8e0', nonmetal:'#74e89a', halogen:'#6fd0ff', noble:'#bd8cff',
+  lanthanide:'#ff8ccd', actinide:'#ff7ab0', unknown:'#9aa0b5'
 };
+const CAT_NAMES={alkali:'Alkali metal',alkaline:'Alkaline earth metal',transition:'Transition metal','post-transition':'Post-transition metal',metalloid:'Metalloid',nonmetal:'Reactive nonmetal',halogen:'Halogen',noble:'Noble gas',lanthanide:'Lanthanide',actinide:'Actinide',unknown:'Unknown'};
+function categoryOf(z){
+  if(z>=57&&z<=71)return'lanthanide'; if(z>=89&&z<=103)return'actinide';
+  if([3,11,19,37,55,87].includes(z))return'alkali';
+  if([4,12,20,38,56,88].includes(z))return'alkaline';
+  if([2,10,18,36,54,86,118].includes(z))return'noble';
+  if([9,17,35,53,85,117].includes(z))return'halogen';
+  if((z>=21&&z<=30)||(z>=39&&z<=48)||(z>=72&&z<=80)||(z>=104&&z<=112))return'transition';
+  if([5,14,32,33,51,52].includes(z))return'metalloid';
+  if([1,6,7,8,15,16,34].includes(z))return'nonmetal';
+  if([13,31,49,50,81,82,83,84,113,114,115,116].includes(z))return'post-transition';
+  return'unknown';
+}
+function stateOf(z){
+  if([1,2,7,8,9,10,17,18,36,54,86,118].includes(z))return'Gas';
+  if([35,80].includes(z))return'Liquid';
+  if(z>=104)return'Unknown (synthetic)';
+  return'Solid';
+}
+function isRadioactive(z){ return z===43||z===61||z>=84; }
+function gridPos(z){
+  if(z===1)return[1,1]; if(z===2)return[18,1];
+  if(z>=3&&z<=4)return[z-2,2]; if(z>=5&&z<=10)return[z+8,2];
+  if(z>=11&&z<=12)return[z-10,3]; if(z>=13&&z<=18)return[z,3];
+  if(z>=19&&z<=36)return[z-18,4];
+  if(z>=37&&z<=54)return[z-36,5];
+  if(z>=55&&z<=56)return[z-54,6]; if(z>=57&&z<=71)return[(z-57)+3,9]; if(z>=72&&z<=86)return[z-68,6];
+  if(z>=87&&z<=88)return[z-86,7]; if(z>=89&&z<=103)return[(z-89)+3,10]; if(z>=104&&z<=118)return[z-100,7];
+  return[1,1];
+}
+function group(z){ const[c,r]=gridPos(z); if(r>=9)return'f-block'; return'Group '+c; }
 
-// Build nucleus as a cluster of nucleons packed in a small sphere
-function buildNucleus(protons, neutrons) {
-  nucleusGroup.clear();
-  const total = protons + neutrons;
-  const types = [];
-  for (let i = 0; i < protons; i++) types.push('p');
-  for (let i = 0; i < neutrons; i++) types.push('n');
-  // shuffle for visual mixing
-  for (let i = types.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [types[i], types[j]] = [types[j], types[i]];
+const ELEMENTS=RAW.trim().split('\n').map(line=>{
+  const[z,sym,name,mass]=line.split('|');
+  const Z=+z, m=parseFloat(mass);
+  return { z:Z, sym, name, mass:m, cat:categoryOf(Z), color:CAT_COLORS[categoryOf(Z)],
+           state:stateOf(Z), radioactive:isRadioactive(Z), period:gridPos(Z)[1]<=7?gridPos(Z)[1]:gridPos(Z)[1]-2,
+           pos:gridPos(Z), defNeutrons:Math.max(0,Math.round(m)-Z) };
+});
+const byZ=z=>ELEMENTS[z-1];
+
+const SUP={0:'⁰',1:'¹',2:'²',3:'³',4:'⁴',5:'⁵',6:'⁶',7:'⁷',8:'⁸',9:'⁹'};
+const sup=n=>String(n).split('').map(d=>SUP[d]).join('');
+const SUB_COLORS={s:'#6fd0ff',p:'#74e89a',d:'#ffd166',f:'#ff8ccd'};
+
+/* ============================================================
+   2. THREE.JS SETUP
+   ============================================================ */
+const canvas=document.getElementById('scene');
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:true,preserveDrawingBuffer:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+
+const scene=new THREE.Scene();
+const camera=new THREE.PerspectiveCamera(50,innerWidth/innerHeight,0.1,2000);
+camera.position.set(0,7,22);
+
+const controls=new OrbitControls(camera,canvas);
+controls.enableDamping=true; controls.dampingFactor=0.06;
+controls.minDistance=5; controls.maxDistance=90;
+controls.autoRotate=false;
+
+const composer=new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene,camera));
+const bloom=new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),0.7,0.5,0.85);
+composer.addPass(bloom);
+
+scene.add(new THREE.AmbientLight(0x88aaff,0.55));
+const key=new THREE.PointLight(0xffffff,1.3,0,0); key.position.set(12,14,16); scene.add(key);
+const fill=new THREE.PointLight(0xff7ad9,0.5,0,0); fill.position.set(-14,-8,-10); scene.add(fill);
+
+/* Starfield */
+let starField=null;
+function buildStars(){
+  if(starField)scene.remove(starField);
+  const n=1600,pos=new Float32Array(n*3),col=new Float32Array(n*3);
+  for(let i=0;i<n;i++){
+    const r=130*Math.cbrt(Math.random())+50,th=Math.random()*Math.PI*2,ph=Math.acos(2*Math.random()-1);
+    pos[i*3]=r*Math.sin(ph)*Math.cos(th); pos[i*3+1]=r*Math.sin(ph)*Math.sin(th); pos[i*3+2]=r*Math.cos(ph);
+    const c=new THREE.Color().setHSL(0.6+Math.random()*0.15,0.6,0.6+Math.random()*0.3);
+    col[i*3]=c.r;col[i*3+1]=c.g;col[i*3+2]=c.b;
   }
-  const packRadius = 0.55 + Math.cbrt(total) * 0.42;
-  for (let i = 0; i < total; i++) {
-    // Fibonacci-sphere-ish distribution scaled by random radius for a clustered look
-    const t = total > 1 ? i / (total - 1) : 0.5;
-    const phi = Math.acos(1 - 2 * t);
-    const theta = Math.PI * (1 + Math.sqrt(5)) * i;
-    const r = packRadius * (0.35 + 0.65 * Math.cbrt(Math.random()));
-    const mesh = new THREE.Mesh(
-      types[i] === 'p' ? protonGeo : neutronGeo,
-      types[i] === 'p' ? protonMat : neutronMat
-    );
-    mesh.position.set(
-      r * Math.sin(phi) * Math.cos(theta),
-      r * Math.sin(phi) * Math.sin(theta),
-      r * Math.cos(phi)
-    );
-    nucleusGroup.add(mesh);
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.BufferAttribute(pos,3));
+  g.setAttribute('color',new THREE.BufferAttribute(col,3));
+  starField=new THREE.Points(g,new THREE.PointsMaterial({size:0.7,vertexColors:true,transparent:true,opacity:0.8}));
+  scene.add(starField);
+}
+buildStars();
+
+/* Reference grid */
+let gridHelper=new THREE.GridHelper(160,40,0x2a3a7a,0x16204a);
+gridHelper.position.y=-14; gridHelper.material.transparent=true; gridHelper.material.opacity=0.25; gridHelper.visible=false;
+scene.add(gridHelper);
+
+/* Atom group */
+const atom=new THREE.Group(); scene.add(atom);
+const nucleusGroup=new THREE.Group(); atom.add(nucleusGroup);
+const electronGroup=new THREE.Group(); atom.add(electronGroup);
+const cloudGroup=new THREE.Group(); atom.add(cloudGroup);
+const fxGroup=new THREE.Group(); atom.add(fxGroup);
+
+/* Glow sprite */
+function glowTex(){
+  const s=128,c=document.createElement('canvas'); c.width=c.height=s;
+  const x=c.getContext('2d'),g=x.createRadialGradient(s/2,s/2,0,s/2,s/2,s/2);
+  g.addColorStop(0,'rgba(255,200,140,1)'); g.addColorStop(.3,'rgba(255,130,170,0.6)'); g.addColorStop(1,'rgba(255,130,170,0)');
+  x.fillStyle=g; x.fillRect(0,0,s,s); return new THREE.CanvasTexture(c);
+}
+const glow=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex(),blending:THREE.AdditiveBlending,transparent:true,depthWrite:false}));
+glow.scale.set(10,10,1); atom.add(glow);
+
+/* Shared materials */
+const protonMat=new THREE.MeshStandardMaterial({color:0xff5577,emissive:0x6a0f25,emissiveIntensity:0.6,roughness:0.35,metalness:0.25});
+const neutronMat=new THREE.MeshStandardMaterial({color:0xcfd4e8,emissive:0x2a2f45,emissiveIntensity:0.4,roughness:0.45,metalness:0.2});
+const nucGeo=new THREE.SphereGeometry(0.45,14,14);
+const elecGeo=new THREE.SphereGeometry(0.26,18,18);
+const elecMatBase=new THREE.MeshStandardMaterial({color:0x6fd0ff,emissive:0x1f6fff,emissiveIntensity:1.5,roughness:0.2});
+const subMats={s:elecMatBase.clone(),p:new THREE.MeshStandardMaterial({color:0x74e89a,emissive:0x1f9f5a,emissiveIntensity:1.5,roughness:0.2}),d:new THREE.MeshStandardMaterial({color:0xffd166,emissive:0xb07a10,emissiveIntensity:1.5,roughness:0.2}),f:new THREE.MeshStandardMaterial({color:0xff8ccd,emissive:0xb02f7a,emissiveIntensity:1.5,roughness:0.2})};
+
+/* ============================================================
+   3. STATE
+   ============================================================ */
+const S={
+  z:6, neutrons:6, electrons:6, mode:'orbital',
+  speed:1, trail:40, spin:0.15, glow:1, nucScale:1, bloom:0.7,
+  showOrbits:true, showLabels:true, showStars:true, subColor:false,
+  paused:false, tour:false, audio:false, quiz:false, bg:'space'
+};
+let electrons=[],rings=[],labels=[],clouds=[],photons=[],alphaParts=[];
+let nucleons=[],protonInst=null,neutronInst=null,glowBase=10;
+
+/* ============================================================
+   4. BUILDERS
+   ============================================================ */
+function clearGroup(g){ while(g.children.length)g.remove(g.children[0]); }
+
+function buildNucleus(){
+  clearGroup(nucleusGroup); nucleons=[];
+  const protons=S.z, neutrons=S.neutrons, total=protons+neutrons;
+  const types=[]; for(let i=0;i<protons;i++)types.push('p'); for(let i=0;i<neutrons;i++)types.push('n');
+  for(let i=types.length-1;i>0;i--){const j=(Math.random()*(i+1))|0;[types[i],types[j]]=[types[j],types[i]];}
+  const packR=0.5+Math.cbrt(Math.max(1,total))*0.42;
+  glowBase=Math.max(6,packR*5.4);
+  const positions=[];
+  for(let i=0;i<total;i++){
+    const t=total>1?i/(total-1):0.5, phi=Math.acos(1-2*t), theta=Math.PI*(1+Math.sqrt(5))*i;
+    const r=packR*(0.32+0.68*Math.cbrt(Math.random()));
+    positions.push(new THREE.Vector3(r*Math.sin(phi)*Math.cos(theta),r*Math.sin(phi)*Math.sin(theta),r*Math.cos(phi)));
   }
-  atom.add(nucleusGroup);
-  return packRadius;
+  protonInst=protons>0?new THREE.InstancedMesh(nucGeo,protonMat,protons):null;
+  neutronInst=neutrons>0?new THREE.InstancedMesh(nucGeo,neutronMat,neutrons):null;
+  const m=new THREE.Matrix4(); let pi=0,ni=0;
+  positions.forEach((p,idx)=>{ m.makeTranslation(p.x,p.y,p.z); if(types[idx]==='p'&&protonInst)protonInst.setMatrixAt(pi++,m); else if(neutronInst)neutronInst.setMatrixAt(ni++,m); });
+  if(protonInst){protonInst.instanceMatrix.needsUpdate=true;nucleusGroup.add(protonInst);}
+  if(neutronInst){neutronInst.instanceMatrix.needsUpdate=true;nucleusGroup.add(neutronInst);}
+  return packR;
 }
 
-function makeTrail() {
-  const len = 40;
-  const positions = new Float32Array(len * 3);
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-  const mat = new THREE.LineBasicMaterial({ color: 0x6fd0ff, transparent: true, opacity: 0.35 });
-  const line = new THREE.Line(geo, mat);
-  line.frustumCulled = false;
-  return { line, positions, len, head: 0, count: 0, history: [] };
+function makeRingTorus(radius,opacity){
+  return new THREE.Mesh(new THREE.TorusGeometry(radius,0.02,8,128),new THREE.MeshBasicMaterial({color:0x3a5cff,transparent:true,opacity}));
+}
+function labelSprite(text,color){
+  const c=document.createElement('canvas'); c.width=128;c.height=64;
+  const x=c.getContext('2d'); x.fillStyle=color; x.font='bold 40px sans-serif'; x.textAlign='center'; x.textBaseline='middle';
+  x.shadowColor=color; x.shadowBlur=12; x.fillText(text,64,32);
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),transparent:true,depthWrite:false}));
+  sp.scale.set(1.6,0.8,1); return sp;
 }
 
-function buildElectrons(shells, baseRadius) {
-  electrons.forEach(e => { atom.remove(e.trail.line); });
-  orbitRings.forEach(r => atom.remove(r));
-  electrons = [];
-  orbitRings = [];
+function buildElectrons(packR){
+  clearGroup(electronGroup); clearGroup(cloudGroup);
+  electrons=[]; rings=[]; labels=[]; clouds=[];
+  const ePer=perElectron(S.electrons);
+  const shellMap={}; ePer.forEach(e=>(shellMap[e.n]=shellMap[e.n]||[]).push(e.sub));
+  const shellNs=Object.keys(shellMap).map(Number).sort((a,b)=>a-b);
+  const heavy=S.electrons>30;
 
-  shells.forEach((numElectrons, shellIndex) => {
-    const radius = baseRadius + 2.4 + shellIndex * 2.3;
+  shellNs.forEach((n,si)=>{
+    const letters=shellMap[n], num=letters.length;
+    const radius=packR+2.4+si*2.3;
 
-    // Orbit ring guide
-    const ringGeo = new THREE.TorusGeometry(radius, 0.02, 8, 120);
-    const ringMat = new THREE.MeshBasicMaterial({ color: 0x3a5cff, transparent: true, opacity: 0.28 });
-
-    for (let i = 0; i < numElectrons; i++) {
-      // Give each electron its own tilted orbital plane
-      const tiltX = (shellIndex * 0.5) + (i / numElectrons) * Math.PI;
-      const tiltZ = (i * 1.7) + shellIndex * 0.9;
-      const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(tiltX, 0, tiltZ));
-
-      const ring = new THREE.Mesh(ringGeo, ringMat.clone());
-      ring.quaternion.copy(q);
-      ring.visible = state.showOrbits;
-      atom.add(ring);
-      orbitRings.push(ring);
-
-      const mesh = new THREE.Mesh(electronGeo, electronMat);
-      atom.add(mesh);
-
-      const trail = makeTrail();
-      atom.add(trail.line);
-
-      electrons.push({
-        mesh,
-        radius,
-        speed: (0.6 + Math.random() * 0.5) * (1.6 / (shellIndex + 1)),
-        phase: Math.random() * Math.PI * 2,
-        q,
-        trail,
-      });
-    }
-  });
-}
-
-let currentGlowBase = 10;
-
-function loadElement(el) {
-  atom.remove(nucleusGroup);
-  nucleusGroup = new THREE.Group();
-  const packRadius = buildNucleus(el.protons, el.neutrons);
-  currentGlowBase = Math.max(7, packRadius * 5.5);
-  buildElectrons(el.shells, packRadius);
-
-  document.getElementById('protons').textContent = el.protons;
-  document.getElementById('neutrons').textContent = el.neutrons;
-  document.getElementById('electrons').textContent = el.shells.reduce((a, b) => a + b, 0);
-}
-
-// ---------- UI: element buttons ----------
-const elContainer = document.getElementById('elements');
-let activeElBtn = null;
-ELEMENTS.forEach((el, idx) => {
-  const btn = document.createElement('button');
-  btn.className = 'elem-btn';
-  btn.innerHTML = `<span class="sym">${el.sym}</span><span class="nm">${el.name}<small>Z = ${el.protons}</small></span>`;
-  btn.addEventListener('click', () => {
-    loadElement(el);
-    if (activeElBtn) activeElBtn.classList.remove('active');
-    btn.classList.add('active');
-    activeElBtn = btn;
-  });
-  elContainer.appendChild(btn);
-  if (idx === 2) { btn.classList.add('active'); activeElBtn = btn; } // default Carbon
-});
-
-// ---------- UI: sliders & toggles ----------
-const speedEl = document.getElementById('speed');
-const glowEl = document.getElementById('glow');
-speedEl.addEventListener('input', () => {
-  state.speed = parseFloat(speedEl.value);
-  document.getElementById('speedVal').textContent = state.speed.toFixed(2) + '×';
-});
-glowEl.addEventListener('input', () => {
-  state.glow = parseFloat(glowEl.value);
-  document.getElementById('glowVal').textContent = Math.round(state.glow * 100) + '%';
-});
-
-function bindToggle(id, key, onChange) {
-  const btn = document.getElementById(id);
-  btn.addEventListener('click', () => {
-    state[key] = !state[key];
-    btn.classList.toggle('active', state[key]);
-    if (onChange) onChange(state[key]);
-  });
-}
-bindToggle('tOrbits', 'showOrbits', v => orbitRings.forEach(r => r.visible = v));
-bindToggle('tSpin', 'spin');
-bindToggle('tTrails', 'trails', v => electrons.forEach(e => {
-  e.trail.line.visible = v;
-  if (!v) { e.trail.count = 0; e.trail.history = []; }
-}));
-
-// ---------- Animation ----------
-const clock = new THREE.Clock();
-const tmp = new THREE.Vector3();
-
-function animate() {
-  requestAnimationFrame(animate);
-  const dt = Math.min(clock.getDelta(), 0.05);
-  const t = clock.elapsedTime;
-
-  // Nucleus subtle wobble
-  nucleusGroup.rotation.y += dt * 0.3;
-  nucleusGroup.rotation.x += dt * 0.12;
-
-  // Glow pulse
-  const pulse = currentGlowBase * (1 + Math.sin(t * 2) * 0.04) * state.glow;
-  glowSprite.scale.set(pulse, pulse, 1);
-  glowSprite.material.opacity = 0.85 * Math.min(1, state.glow);
-
-  // Electrons
-  for (const e of electrons) {
-    e.phase += dt * e.speed * state.speed * 1.6;
-    tmp.set(Math.cos(e.phase) * e.radius, Math.sin(e.phase) * e.radius, 0);
-    tmp.applyQuaternion(e.q);
-    e.mesh.position.copy(tmp);
-
-    if (state.trails) {
-      const h = e.trail.history;
-      h.push(tmp.x, tmp.y, tmp.z);
-      if (h.length > e.trail.len * 3) h.splice(0, h.length - e.trail.len * 3);
-      const arr = e.trail.positions;
-      const pts = h.length / 3;
-      for (let i = 0; i < e.trail.len; i++) {
-        const src = (i < pts) ? (h.length - (pts - i) * 3) : 0;
-        arr[i * 3]     = h[src] ?? tmp.x;
-        arr[i * 3 + 1] = h[src + 1] ?? tmp.y;
-        arr[i * 3 + 2] = h[src + 2] ?? tmp.z;
+    if(S.mode==='cloud'){
+      const cnt=Math.min(2600,num*240);
+      const pos=new Float32Array(cnt*3),col=new Float32Array(cnt*3);
+      for(let k=0;k<cnt;k++){
+        const u=Math.random()*2-1,th=Math.random()*Math.PI*2,s=Math.sqrt(1-u*u);
+        const rr=radius+(Math.random()+Math.random()+Math.random()-1.5)*0.95;
+        pos[k*3]=rr*s*Math.cos(th);pos[k*3+1]=rr*s*Math.sin(th);pos[k*3+2]=rr*u;
+        const c=new THREE.Color(S.subColor?SUB_COLORS[letters[k%num]]:'#6fd0ff');
+        col[k*3]=c.r;col[k*3+1]=c.g;col[k*3+2]=c.b;
       }
-      e.trail.line.geometry.attributes.position.needsUpdate = true;
-      e.trail.line.geometry.setDrawRange(0, Math.min(pts, e.trail.len));
+      const g=new THREE.BufferGeometry();
+      g.setAttribute('position',new THREE.BufferAttribute(pos,3));
+      g.setAttribute('color',new THREE.BufferAttribute(col,3));
+      const pts=new THREE.Points(g,new THREE.PointsMaterial({size:0.13,vertexColors:true,transparent:true,opacity:0.65,blending:THREE.AdditiveBlending,depthWrite:false}));
+      cloudGroup.add(pts); clouds.push(pts);
     }
-  }
 
-  if (state.spin) atom.rotation.y += dt * 0.15;
+    if(S.mode!=='cloud'){
+      if(S.mode==='bohr'){
+        const tilt=si*0.16;
+        const ring=makeRingTorus(radius,0.3); ring.rotation.x=Math.PI/2-tilt; ring.visible=S.showOrbits;
+        electronGroup.add(ring); rings.push(ring);
+        for(let i=0;i<num;i++){
+          const sub=letters[i], mesh=new THREE.Mesh(elecGeo,S.subColor?subMats[sub]:elecMatBase);
+          electronGroup.add(mesh);
+          electrons.push({mesh,radius,baseR:radius,targetR:radius,phase:(i/num)*Math.PI*2,
+            speed:1.1/(si*0.5+1),q:new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.PI/2-tilt,0,0)),
+            sub,trail:!heavy&&S.trail>0?makeTrail(sub):null});
+        }
+      } else { /* orbital */
+        for(let i=0;i<num;i++){
+          const sub=letters[i];
+          const tx=si*0.5+(i/num)*Math.PI, tz=i*1.7+si*0.9;
+          const q=new THREE.Quaternion().setFromEuler(new THREE.Euler(tx,0,tz));
+          const ring=makeRingTorus(radius,0.24); ring.quaternion.copy(q); ring.visible=S.showOrbits;
+          electronGroup.add(ring); rings.push(ring);
+          const mesh=new THREE.Mesh(elecGeo,S.subColor?subMats[sub]:elecMatBase);
+          electronGroup.add(mesh);
+          electrons.push({mesh,radius,baseR:radius,targetR:radius,phase:Math.random()*Math.PI*2,
+            speed:(0.6+Math.random()*0.5)*(1.6/(si+1)),q,sub,trail:!heavy&&S.trail>0?makeTrail(sub):null});
+        }
+      }
+      if(S.showLabels){
+        const lab=labelSprite(SHELL_LETTERS[n-1]||('n'+n),'#9fc0ff');
+        lab.position.set(0,radius+0.5,0); electronGroup.add(lab); labels.push(lab);
+      }
+    }
+  });
+}
+
+function makeTrail(sub){
+  const len=120,positions=new Float32Array(len*3),g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.BufferAttribute(positions,3));
+  const line=new THREE.Line(g,new THREE.LineBasicMaterial({color:new THREE.Color(S.subColor?SUB_COLORS[sub]:'#6fd0ff'),transparent:true,opacity:0.4}));
+  line.frustumCulled=false; electronGroup.add(line);
+  return {line,positions,len,history:[]};
+}
+
+function rebuild(){ const packR=buildNucleus(); buildElectrons(packR); updateInfo(); }
+
+/* ============================================================
+   5. INFO / UI SYNC
+   ============================================================ */
+const $=id=>document.getElementById(id);
+function updateInfo(){
+  const el=byZ(S.z), A=S.z+S.neutrons, charge=S.z-S.electrons;
+  const cfg=configFor(S.electrons), shells=shellsFromCount(S.electrons);
+  // sym box
+  $('symBox').style.background=`linear-gradient(135deg,${el.color},#ffffff44)`;
+  $('iz').textContent=el.z; $('is').textContent=el.sym; $('im').textContent=A;
+  $('iname').textContent=el.name;
+  const cat=$('icat'); cat.textContent=CAT_NAMES[el.cat]; cat.style.background=el.color+'22'; cat.style.color=el.color; cat.style.border='1px solid '+el.color+'66';
+  $('igrp').textContent=`Period ${el.period} · ${group(el.z)}`;
+  $('imass').textContent=el.mass+' u';
+  $('iA').textContent=A;
+  $('istate').textContent=el.state;
+  $('icharge').textContent=charge===0?'0 (neutral)':(charge>0?'+'+charge+' (cation)':charge+' (anion)');
+  $('ivalence').textContent=shells.length?shells[shells.length-1]:0;
+  // tags
+  let tags='';
+  if(el.radioactive)tags+='<span class="tag radio">☢ radioactive</span>';
+  if(charge!==0)tags+=`<span class="tag ion">ion ${charge>0?'+':''}${charge}</span>`;
+  tags+=`<span class="tag fact">${el.sym}-${A}</span>`;
+  $('itags').innerHTML=tags;
+  // config
+  $('icfg').innerHTML=cfg.map(c=>`<span style="color:${SUB_COLORS[c.sub]}">${c.label}<sup>${c.count}</sup></span>`).join('&nbsp;');
+  // shells
+  $('ishells').innerHTML=shells.map((c,i)=>`<span class="shellchip"><b>${SHELL_LETTERS[i]||('n'+(i+1))}</b> ${c}</span>`).join('');
+  // bottom stats
+  $('cP').textContent=S.z; $('cN').textContent=S.neutrons; $('cE').textContent=S.electrons;
+  $('cC').textContent=(charge>0?'+':'')+charge; $('cA').textContent=A;
+  // hud
+  $('hudName').textContent=el.name;
+  $('hudMode').textContent=S.mode[0].toUpperCase()+S.mode.slice(1);
+  // sliders bound to composition
+  const rN=$('rNeut'); rN.max=Math.max(40,Math.round(el.mass)+20); rN.value=S.neutrons; $('vNeut').textContent=S.neutrons;
+  const rE=$('rElec'); rE.max=Math.min(118,el.z+12); rE.min=1; rE.value=S.electrons; $('vElec').textContent=S.electrons;
+  // periodic highlight
+  document.querySelectorAll('.cell').forEach(c=>c.classList.toggle('sel',+c.dataset.z===S.z));
+  drawSpectrum();
+}
+
+function loadElement(z,keepIon){
+  z=Math.max(1,Math.min(118,z)); S.z=z; const el=byZ(z);
+  if(!keepIon){ S.neutrons=el.defNeutrons; S.electrons=z; }
+  rebuild();
+}
+
+/* ============================================================
+   6. EMISSION SPECTRUM
+   ============================================================ */
+const specCanvas=$('spectrum'),sctx=specCanvas.getContext('2d');
+function nmToRGB(wl){
+  let r=0,g=0,b=0;
+  if(wl<440){r=-(wl-440)/(440-380);b=1;} else if(wl<490){g=(wl-440)/(490-440);b=1;}
+  else if(wl<510){g=1;b=-(wl-510)/(510-490);} else if(wl<580){r=(wl-510)/(580-510);g=1;}
+  else if(wl<645){r=1;g=-(wl-645)/(645-580);} else {r=1;}
+  return [r*255|0,g*255|0,b*255|0];
+}
+function spectralLines(z){
+  // deterministic pseudo-lines from Z for visual variety
+  const lines=[]; let seed=z*2654435761%2147483647;
+  const rnd=()=>{seed=(seed*48271)%2147483647;return seed/2147483647;};
+  const count=3+(z%5);
+  for(let i=0;i<count;i++)lines.push(400+rnd()*300);
+  return lines;
+}
+function drawSpectrum(){
+  const w=specCanvas.width,h=specCanvas.height;
+  for(let x=0;x<w;x++){ const wl=400+(x/w)*300,[r,g,b]=nmToRGB(wl); sctx.fillStyle=`rgb(${r},${g},${b})`; sctx.globalAlpha=0.22; sctx.fillRect(x,0,1,h); }
+  sctx.globalAlpha=1;
+  spectralLines(S.z).forEach(wl=>{ const x=((wl-400)/300)*w,[r,g,b]=nmToRGB(wl); sctx.fillStyle=`rgb(${r},${g},${b})`; sctx.fillRect(x-1,0,2.2,h); });
+}
+
+/* ============================================================
+   7. EXCITE / PHOTONS / ALPHA DECAY
+   ============================================================ */
+const photonGeo=new THREE.RingGeometry(0.3,0.45,32);
+function excite(){
+  electrons.forEach(e=>{ e.targetR=e.baseR*(1.5+Math.random()*0.6); setTimeout(()=>e.targetR=e.baseR,300+Math.random()*400); });
+  for(let i=0;i<10;i++){
+    const wl=spectralLines(S.z)[i%spectralLines(S.z).length],[r,g,b]=nmToRGB(wl);
+    const mat=new THREE.MeshBasicMaterial({color:new THREE.Color(r/255,g/255,b/255),transparent:true,opacity:0.9,side:THREE.DoubleSide,blending:THREE.AdditiveBlending,depthWrite:false});
+    const ring=new THREE.Mesh(photonGeo,mat);
+    ring.lookAt(new THREE.Vector3(Math.random()-0.5,Math.random()-0.5,Math.random()-0.5));
+    fxGroup.add(ring); photons.push({mesh:ring,life:1,speed:0.5+Math.random()*0.6});
+  }
+  glowFlash=1.2; blip(880,0.08); blip(1320,0.12);
+}
+let glowFlash=0;
+
+function spawnAlpha(){
+  const dir=new THREE.Vector3(Math.random()-0.5,Math.random()-0.5,Math.random()-0.5).normalize();
+  const m=new THREE.Mesh(new THREE.SphereGeometry(0.3,10,10),new THREE.MeshBasicMaterial({color:0x9dff5f,transparent:true,opacity:0.9}));
+  fxGroup.add(m); alphaParts.push({mesh:m,dir,life:1});
+  blip(220,0.2);
+}
+
+/* ============================================================
+   8. AUDIO
+   ============================================================ */
+let actx=null,drone=null,droneGain=null;
+function initAudio(){
+  if(actx)return;
+  actx=new (window.AudioContext||window.webkitAudioContext)();
+  drone=actx.createOscillator(); droneGain=actx.createGain();
+  drone.type='sine'; drone.frequency.value=70; droneGain.gain.value=0;
+  const drone2=actx.createOscillator(); drone2.type='sine'; drone2.frequency.value=105;
+  drone.connect(droneGain); drone2.connect(droneGain); droneGain.connect(actx.destination);
+  drone.start(); drone2.start();
+}
+function blip(freq,vol){
+  if(!S.audio||!actx)return;
+  const o=actx.createOscillator(),g=actx.createGain();
+  o.type='triangle'; o.frequency.value=freq; g.gain.value=0;
+  o.connect(g); g.connect(actx.destination); const t=actx.currentTime;
+  g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(vol,t+0.01); g.gain.exponentialRampToValueAtTime(0.001,t+0.25);
+  o.start(t); o.stop(t+0.26);
+}
+
+/* ============================================================
+   9. PERIODIC TABLE UI
+   ============================================================ */
+const ptGrid=$('ptGrid');
+ELEMENTS.forEach(el=>{
+  const cell=document.createElement('div');
+  cell.className='cell'; cell.dataset.z=el.z; cell.dataset.search=(el.name+' '+el.sym+' '+el.z).toLowerCase();
+  cell.style.background=el.color+'cc';
+  cell.style.color=shade(el.color);
+  cell.style.gridColumn=el.pos[0]; cell.style.gridRow=el.pos[1];
+  cell.innerHTML=`<span class="cz">${el.z}</span><span class="cs">${el.sym}</span><span class="cn">${el.name}</span>`;
+  cell.title=`${el.name} — ${CAT_NAMES[el.cat]}`;
+  cell.onclick=()=>{ loadElement(el.z); closeModal('ptModal'); toast(el.name+' ('+el.sym+')'); };
+  ptGrid.appendChild(cell);
+});
+function shade(hex){ const c=parseInt(hex.slice(1),16),r=(c>>16)&255,g=(c>>8)&255,b=c&255; return `rgb(${r*0.3|0},${g*0.3|0},${b*0.3|0})`; }
+// legend
+const ptLegend=$('ptLegend');
+Object.keys(CAT_NAMES).forEach(k=>{ const d=document.createElement('span'); d.className='lg'; d.innerHTML=`<span class="sw" style="background:${CAT_COLORS[k]}"></span>${CAT_NAMES[k]}`; ptLegend.appendChild(d); });
+$('ptSearch').addEventListener('input',e=>{
+  const q=e.target.value.trim().toLowerCase();
+  document.querySelectorAll('.cell').forEach(c=>c.classList.toggle('dim',q&&!c.dataset.search.includes(q)));
+});
+
+/* ============================================================
+   10. QUIZ
+   ============================================================ */
+let quizAnswer=null,quizScore=0,quizTotal=0;
+function newQuiz(){
+  $('quizFeedback').textContent='';
+  const z=1+(Math.random()*118|0), el=byZ(z); quizAnswer=el;
+  $('quizZ').textContent='Z = '+z;
+  $('quizCfg').innerHTML=configFor(z).map(c=>`<span style="color:${SUB_COLORS[c.sub]}">${c.label}<sup>${c.count}</sup></span>`).join(' ');
+  const opts=new Set([el.name]);
+  while(opts.size<4)opts.add(byZ(1+(Math.random()*118|0)).name);
+  const arr=[...opts].sort(()=>Math.random()-0.5);
+  const wrap=$('quizChoices'); wrap.innerHTML='';
+  arr.forEach(name=>{ const b=document.createElement('button'); b.className='tbtn'; b.textContent=name; b.onclick=()=>answerQuiz(name,b); wrap.appendChild(b); });
+}
+function answerQuiz(name,btn){
+  quizTotal++;
+  if(name===quizAnswer.name){ quizScore++; btn.classList.add('active'); $('quizFeedback').style.color='var(--good)'; $('quizFeedback').textContent='✓ Correct!'; blip(880,0.1); }
+  else { btn.style.borderColor='var(--bad)'; $('quizFeedback').style.color='var(--bad)'; $('quizFeedback').textContent='✗ It was '+quizAnswer.name; blip(160,0.15);
+    [...$('quizChoices').children].forEach(b=>{ if(b.textContent===quizAnswer.name)b.classList.add('active'); }); }
+  $('quizScore').textContent=`Score: ${quizScore} / ${quizTotal}`;
+  loadElement(quizAnswer.z);
+}
+$('quizNext').onclick=newQuiz;
+
+/* ============================================================
+   11. CONTROL WIRING
+   ============================================================ */
+function bindRange(id,fn,fmt){ const r=$(id),v=$('v'+id.slice(1)); const h=()=>{const val=parseFloat(r.value);fn(val);if(v)v.textContent=fmt?fmt(val):val;}; r.addEventListener('input',h); }
+bindRange('rSpeed',v=>S.speed=v,v=>v.toFixed(2)+'×');
+bindRange('rTrail',v=>{S.trail=v;rebuild();},v=>Math.round(v));
+bindRange('rSpin',v=>S.spin=v,v=>v.toFixed(2));
+bindRange('rGlow',v=>S.glow=v,v=>Math.round(v*100)+'%');
+bindRange('rNuc',v=>{S.nucScale=v;},v=>Math.round(v*100)+'%');
+bindRange('rBloom',v=>{S.bloom=v;bloom.strength=v;},v=>Math.round(v*100)+'%');
+$('rNeut').addEventListener('input',e=>{S.neutrons=+e.target.value;$('vNeut').textContent=S.neutrons;rebuild();});
+$('rElec').addEventListener('input',e=>{S.electrons=+e.target.value;$('vElec').textContent=S.electrons;rebuild();});
+$('bNeutReset').onclick=()=>{S.neutrons=byZ(S.z).defNeutrons;rebuild();};
+$('bElecReset').onclick=()=>{S.electrons=S.z;rebuild();};
+
+function bindToggle(id,key,after){ const b=$(id); b.onclick=()=>{ S[key]=!S[key]; b.classList.toggle('active',S[key]); after&&after(); }; }
+bindToggle('tOrbits','showOrbits',()=>rings.forEach(r=>r.visible=S.showOrbits));
+bindToggle('tLabels','showLabels',rebuild);
+bindToggle('tStars','showStars',()=>starField.visible=S.showStars);
+bindToggle('tSubcolor','subColor',rebuild);
+
+document.querySelectorAll('#modeSeg button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('#modeSeg button').forEach(x=>x.classList.remove('active')); b.classList.add('active');
+  S.mode=b.dataset.mode; rebuild();
+});
+document.querySelectorAll('#bgSeg button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('#bgSeg button').forEach(x=>x.classList.remove('active')); b.classList.add('active');
+  S.bg=b.dataset.bg; applyBg();
+});
+function applyBg(){
+  starField.visible=S.bg==='space'&&S.showStars;
+  gridHelper.visible=S.bg==='grid';
+  document.body.style.background=S.bg==='void'?'radial-gradient(circle at 50% 40%,#0a0a14,#020207 70%)':(S.bg==='grid'?'radial-gradient(circle at 50% 30%,#081024,#02040d 72%)':'radial-gradient(circle at 50% 28%,var(--bg-1),var(--bg-0) 72%)');
+}
+
+/* dock + modals */
+function openModal(id){ $(id).classList.add('open'); }
+function closeModal(id){ $(id).classList.remove('open'); }
+document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>closeModal(b.dataset.close));
+document.querySelectorAll('.modal').forEach(m=>m.addEventListener('mousedown',e=>{ if(e.target===m)closeModal(m.id); }));
+$('aPeriodic').onclick=()=>openModal('ptModal');
+$('aHelp').onclick=()=>openModal('helpModal');
+$('aRandom').onclick=()=>{ loadElement(1+(Math.random()*118|0)); toast(byZ(S.z).name); };
+$('aExcite').onclick=excite;
+$('aReset').onclick=resetCam;
+$('aShot').onclick=screenshot;
+$('aFull').onclick=()=>{ if(!document.fullscreenElement)document.documentElement.requestFullscreen(); else document.exitFullscreen(); };
+$('aPause').onclick=function(){ S.paused=!S.paused; this.classList.toggle('on',S.paused); this.querySelector('span').textContent=S.paused?'▶':'⏸'; };
+$('aTour').onclick=function(){ S.tour=!S.tour; this.classList.toggle('on',S.tour); controls.autoRotate=S.tour; toast(S.tour?'Auto-tour on':'Auto-tour off'); };
+$('aAudio').onclick=function(){ S.audio=!S.audio; this.classList.toggle('on',S.audio); this.querySelector('span').textContent=S.audio?'🔊':'🔇';
+  if(S.audio){ initAudio(); if(actx.state==='suspended')actx.resume(); droneGain.gain.linearRampToValueAtTime(0.04,actx.currentTime+0.5); } else if(droneGain){ droneGain.gain.linearRampToValueAtTime(0,actx.currentTime+0.4); } };
+$('aQuiz').onclick=function(){ openModal('quizModal'); newQuiz(); };
+
+function resetCam(){ camera.position.set(0,7,22); controls.target.set(0,0,0); }
+function screenshot(){ composer.render(); const a=document.createElement('a'); a.href=renderer.domElement.toDataURL('image/png'); a.download=`atom-${byZ(S.z).sym}-${S.z}.png`; a.click(); toast('Screenshot saved'); }
+
+let toastT;
+function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),1600); }
+
+/* click-to-excite on canvas */
+canvas.addEventListener('click',()=>{ if(!controls.enableDamping)return; excite(); });
+
+/* keyboard */
+addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT')return;
+  const k=e.key.toLowerCase();
+  if(k==='p')openModal('ptModal');
+  else if(k==='n')$('aRandom').click();
+  else if(k==='e')excite();
+  else if(k==='t')$('aTour').click();
+  else if(k==='q'){openModal('quizModal');newQuiz();}
+  else if(k==='r')resetCam();
+  else if(k==='a')$('aAudio').click();
+  else if(k==='s'){e.preventDefault();screenshot();}
+  else if(k==='h')openModal('helpModal');
+  else if(k==='f')$('aFull').click();
+  else if(k===' '){e.preventDefault();$('aPause').click();}
+  else if(k==='1'){setMode('orbital');}
+  else if(k==='2'){setMode('bohr');}
+  else if(k==='3'){setMode('cloud');}
+  else if(e.key==='ArrowRight')loadElement(S.z+1);
+  else if(e.key==='ArrowLeft')loadElement(S.z-1);
+  else if(k==='escape')document.querySelectorAll('.modal.open').forEach(m=>m.classList.remove('open'));
+});
+function setMode(m){ S.mode=m; document.querySelectorAll('#modeSeg button').forEach(b=>b.classList.toggle('active',b.dataset.mode===m)); rebuild(); }
+
+/* ============================================================
+   12. ANIMATION LOOP
+   ============================================================ */
+const clock=new THREE.Clock(); const tmp=new THREE.Vector3();
+let fpsT=0,fpsN=0,tourT=0;
+function animate(){
+  requestAnimationFrame(animate);
+  const dt=Math.min(clock.getDelta(),0.05), t=clock.elapsedTime;
+  // fps
+  fpsN++; fpsT+=dt; if(fpsT>=0.5){ $('fps').textContent=Math.round(fpsN/fpsT); fpsN=0; fpsT=0; }
+
+  if(!S.paused){
+    nucleusGroup.rotation.y+=dt*0.3; nucleusGroup.rotation.x+=dt*0.12;
+    nucleusGroup.scale.setScalar(S.nucScale);
+    // glow
+    glowFlash=Math.max(0,glowFlash-dt*2);
+    const pulse=glowBase*S.nucScale*(1+Math.sin(t*2)*0.04+glowFlash)*S.glow;
+    glow.scale.set(pulse,pulse,1); glow.material.opacity=Math.min(1,0.85*S.glow+glowFlash*0.5);
+
+    // electrons
+    for(const e of electrons){
+      e.radius+=(e.targetR-e.radius)*Math.min(1,dt*6);
+      e.phase+=dt*e.speed*S.speed*1.6;
+      tmp.set(Math.cos(e.phase)*e.radius,Math.sin(e.phase)*e.radius,0).applyQuaternion(e.q);
+      e.mesh.position.copy(tmp);
+      if(e.trail&&S.trail>0){
+        const h=e.trail.history; h.push(tmp.x,tmp.y,tmp.z);
+        const maxLen=Math.min(e.trail.len,S.trail);
+        if(h.length>maxLen*3)h.splice(0,h.length-maxLen*3);
+        const arr=e.trail.positions,pts=h.length/3;
+        for(let i=0;i<pts;i++){ arr[i*3]=h[i*3];arr[i*3+1]=h[i*3+1];arr[i*3+2]=h[i*3+2]; }
+        e.trail.line.geometry.attributes.position.needsUpdate=true;
+        e.trail.line.geometry.setDrawRange(0,pts);
+      }
+    }
+    // clouds
+    cloudGroup.rotation.y+=dt*0.1; cloudGroup.rotation.x+=dt*0.04;
+    // photons
+    for(let i=photons.length-1;i>=0;i--){ const p=photons[i]; p.life-=dt*1.2; const sc=1+(1-p.life)*8; p.mesh.scale.setScalar(sc); p.mesh.material.opacity=Math.max(0,p.life*0.9); if(p.life<=0){fxGroup.remove(p.mesh);photons.splice(i,1);} }
+    // alpha decay for radioactive
+    if(byZ(S.z).radioactive&&Math.random()<dt*0.6)spawnAlpha();
+    for(let i=alphaParts.length-1;i>=0;i--){ const a=alphaParts[i]; a.life-=dt*0.7; a.mesh.position.addScaledVector(a.dir,dt*14); a.mesh.material.opacity=Math.max(0,a.life); if(a.life<=0){fxGroup.remove(a.mesh);alphaParts.splice(i,1);} }
+    // spin & tour
+    atom.rotation.y+=dt*S.spin;
+    if(S.tour){ tourT+=dt; if(tourT>4){ tourT=0; loadElement(S.z>=118?1:S.z+1); } }
+    if(starField)starField.rotation.y+=dt*0.005;
+  }
 
   controls.update();
-  renderer.render(scene, camera);
+  composer.render();
 }
 
-// ---------- Resize ----------
-window.addEventListener('resize', () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
+/* ============================================================
+   13. RESIZE & GO
+   ============================================================ */
+addEventListener('resize',()=>{
+  camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight); composer.setSize(innerWidth,innerHeight); bloom.setSize(innerWidth,innerHeight);
 });
 
-// ---------- Go ----------
-loadElement(ELEMENTS[2]); // Carbon
+applyBg();
+loadElement(6);
 animate();
 </script>
 </body>
