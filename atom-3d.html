@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Interactive 3D Atom</title>
+<style>
+  :root {
+    --bg-0: #05060f;
+    --bg-1: #0d1230;
+    --panel: rgba(16, 20, 48, 0.72);
+    --panel-border: rgba(120, 160, 255, 0.25);
+    --text: #e8ecff;
+    --muted: #94a0d4;
+    --accent: #5fb0ff;
+    --accent-2: #ff7ad9;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    height: 100%;
+    overflow: hidden;
+    background: radial-gradient(circle at 50% 30%, var(--bg-1), var(--bg-0) 70%);
+    color: var(--text);
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  #scene { position: fixed; inset: 0; display: block; }
+
+  .panel {
+    position: fixed;
+    backdrop-filter: blur(14px);
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 16px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+  }
+
+  /* Controls panel */
+  #controls {
+    top: 20px;
+    left: 20px;
+    width: 280px;
+    padding: 20px;
+  }
+
+  #controls h1 {
+    margin: 0 0 4px;
+    font-size: 18px;
+    letter-spacing: 0.5px;
+  }
+  #controls .sub {
+    margin: 0 0 18px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .field { margin-bottom: 16px; }
+  .field label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 7px;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+  }
+  .field label .val { color: var(--accent); font-variant-numeric: tabular-nums; }
+
+  input[type="range"] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 5px;
+    border-radius: 4px;
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    outline: none;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: #fff;
+    border: 2px solid var(--accent);
+    cursor: pointer;
+    box-shadow: 0 0 8px rgba(95, 176, 255, 0.8);
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: #fff;
+    border: 2px solid var(--accent);
+    cursor: pointer;
+  }
+
+  .toggles { display: flex; flex-wrap: wrap; gap: 8px; }
+  .toggle-btn {
+    flex: 1 1 auto;
+    padding: 9px 10px;
+    font-size: 12px;
+    border-radius: 10px;
+    border: 1px solid var(--panel-border);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.18s ease;
+  }
+  .toggle-btn:hover { background: rgba(95, 176, 255, 0.15); }
+  .toggle-btn.active {
+    background: linear-gradient(120deg, var(--accent), var(--accent-2));
+    border-color: transparent;
+    color: #06081c;
+    font-weight: 600;
+  }
+
+  /* Element selector */
+  #elements {
+    top: 20px;
+    right: 20px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 150px;
+  }
+  #elements .head { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px; padding: 2px 4px; }
+  .elem-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 12px;
+    border-radius: 10px;
+    border: 1px solid transparent;
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.18s ease;
+  }
+  .elem-btn:hover { background: rgba(255, 122, 217, 0.14); }
+  .elem-btn.active { border-color: var(--accent); background: rgba(95, 176, 255, 0.18); }
+  .elem-btn .sym {
+    width: 30px; height: 30px;
+    display: grid; place-items: center;
+    border-radius: 8px;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    color: #06081c;
+    font-size: 13px;
+  }
+  .elem-btn .nm { font-size: 13px; }
+  .elem-btn .nm small { display: block; color: var(--muted); font-size: 10px; }
+
+  /* Info readout */
+  #info {
+    bottom: 20px;
+    left: 20px;
+    padding: 14px 18px;
+    display: flex;
+    gap: 22px;
+  }
+  #info .stat { text-align: center; }
+  #info .stat .num { font-size: 22px; font-weight: 700; line-height: 1; }
+  #info .stat .lbl { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.7px; margin-top: 5px; }
+  .num.p { color: #ff6b8a; }
+  .num.n { color: #c8c8d8; }
+  .num.e { color: var(--accent); }
+
+  #hint {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    font-size: 11px;
+    color: var(--muted);
+    text-align: right;
+    pointer-events: none;
+  }
+
+  @media (max-width: 720px) {
+    #controls { width: calc(100% - 40px); }
+    #elements { flex-direction: row; flex-wrap: wrap; width: auto; left: 20px; right: 20px; top: auto; bottom: 110px; }
+    #elements .head { width: 100%; }
+    #info { font-size: 11px; }
+  }
+</style>
+</head>
+<body>
+  <canvas id="scene"></canvas>
+
+  <div id="controls" class="panel">
+    <h1>Interactive 3D Atom</h1>
+    <p class="sub">Drag to orbit · scroll to zoom</p>
+
+    <div class="field">
+      <label>Electron Speed <span class="val" id="speedVal">1.0×</span></label>
+      <input type="range" id="speed" min="0" max="4" step="0.05" value="1" />
+    </div>
+
+    <div class="field">
+      <label>Nucleus Glow <span class="val" id="glowVal">100%</span></label>
+      <input type="range" id="glow" min="0" max="2" step="0.05" value="1" />
+    </div>
+
+    <div class="field">
+      <label>Display</label>
+      <div class="toggles">
+        <button class="toggle-btn active" id="tOrbits">Orbit Paths</button>
+        <button class="toggle-btn active" id="tSpin">Auto-Spin</button>
+        <button class="toggle-btn active" id="tTrails">Trails</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="elements" class="panel">
+    <div class="head">Element</div>
+  </div>
+
+  <div id="info" class="panel">
+    <div class="stat"><div class="num p" id="protons">1</div><div class="lbl">Protons</div></div>
+    <div class="stat"><div class="num n" id="neutrons">0</div><div class="lbl">Neutrons</div></div>
+    <div class="stat"><div class="num e" id="electrons">1</div><div class="lbl">Electrons</div></div>
+  </div>
+
+  <div id="hint">Built with Three.js</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// ---------- Element data ----------
+// shells = electrons per shell (defines orbit rings)
+const ELEMENTS = [
+  { sym: 'H',  name: 'Hydrogen',  protons: 1,  neutrons: 0,  shells: [1] },
+  { sym: 'He', name: 'Helium',    protons: 2,  neutrons: 2,  shells: [2] },
+  { sym: 'C',  name: 'Carbon',    protons: 6,  neutrons: 6,  shells: [2, 4] },
+  { sym: 'O',  name: 'Oxygen',    protons: 8,  neutrons: 8,  shells: [2, 6] },
+  { sym: 'Ne', name: 'Neon',      protons: 10, neutrons: 10, shells: [2, 8] },
+  { sym: 'Si', name: 'Silicon',   protons: 14, neutrons: 14, shells: [2, 8, 4] },
+  { sym: 'Fe', name: 'Iron',      protons: 26, neutrons: 30, shells: [2, 8, 14, 2] },
+  { sym: 'Au', name: 'Gold',      protons: 79, neutrons: 118,shells: [2, 8, 18, 32, 18, 1] },
+];
+
+// ---------- Renderer / scene / camera ----------
+const canvas = document.getElementById('scene');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+
+const scene = new THREE.Scene();
+
+const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+camera.position.set(0, 6, 18);
+
+const controls = new OrbitControls(camera, canvas);
+controls.enableDamping = true;
+controls.dampingFactor = 0.06;
+controls.minDistance = 6;
+controls.maxDistance = 60;
+
+// ---------- Lighting ----------
+scene.add(new THREE.AmbientLight(0x88aaff, 0.5));
+const keyLight = new THREE.PointLight(0xffffff, 1.2, 0, 0);
+keyLight.position.set(10, 12, 14);
+scene.add(keyLight);
+
+// ---------- Starfield background ----------
+(function addStars() {
+  const count = 1400;
+  const positions = new Float32Array(count * 3);
+  for (let i = 0; i < count; i++) {
+    const r = 120 * Math.cbrt(Math.random()) + 40;
+    const theta = Math.random() * Math.PI * 2;
+    const phi = Math.acos(2 * Math.random() - 1);
+    positions[i * 3]     = r * Math.sin(phi) * Math.cos(theta);
+    positions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+    positions[i * 3 + 2] = r * Math.cos(phi);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  const mat = new THREE.PointsMaterial({ color: 0x9fb4ff, size: 0.6, transparent: true, opacity: 0.7 });
+  scene.add(new THREE.Points(geo, mat));
+})();
+
+// ---------- Atom group ----------
+const atom = new THREE.Group();
+scene.add(atom);
+
+// Nucleus glow sprite
+function makeGlowTexture() {
+  const size = 128;
+  const c = document.createElement('canvas');
+  c.width = c.height = size;
+  const ctx = c.getContext('2d');
+  const g = ctx.createRadialGradient(size/2, size/2, 0, size/2, size/2, size/2);
+  g.addColorStop(0, 'rgba(255,180,120,1)');
+  g.addColorStop(0.3, 'rgba(255,120,160,0.6)');
+  g.addColorStop(1, 'rgba(255,120,160,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, size, size);
+  return new THREE.CanvasTexture(c);
+}
+const glowSprite = new THREE.Sprite(new THREE.SpriteMaterial({
+  map: makeGlowTexture(), blending: THREE.AdditiveBlending, transparent: true, depthWrite: false
+}));
+glowSprite.scale.set(10, 10, 1);
+atom.add(glowSprite);
+
+// reusable geometries / materials
+const protonGeo  = new THREE.SphereGeometry(0.42, 24, 24);
+const neutronGeo = new THREE.SphereGeometry(0.42, 24, 24);
+const protonMat  = new THREE.MeshStandardMaterial({ color: 0xff5577, emissive: 0x6a0f25, roughness: 0.35, metalness: 0.2 });
+const neutronMat = new THREE.MeshStandardMaterial({ color: 0xcfd4e8, emissive: 0x2a2f45, roughness: 0.4, metalness: 0.2 });
+const electronMat = new THREE.MeshStandardMaterial({ color: 0x6fd0ff, emissive: 0x1f6fff, emissiveIntensity: 1.4, roughness: 0.2 });
+const electronGeo = new THREE.SphereGeometry(0.28, 20, 20);
+
+let nucleusGroup = new THREE.Group();
+let electrons = [];   // { mesh, radius, speed, phase, axis(quaternion), trail }
+let orbitRings = [];
+
+const state = {
+  speed: 1, glow: 1,
+  showOrbits: true, spin: true, trails: true,
+};
+
+// Build nucleus as a cluster of nucleons packed in a small sphere
+function buildNucleus(protons, neutrons) {
+  nucleusGroup.clear();
+  const total = protons + neutrons;
+  const types = [];
+  for (let i = 0; i < protons; i++) types.push('p');
+  for (let i = 0; i < neutrons; i++) types.push('n');
+  // shuffle for visual mixing
+  for (let i = types.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [types[i], types[j]] = [types[j], types[i]];
+  }
+  const packRadius = 0.55 + Math.cbrt(total) * 0.42;
+  for (let i = 0; i < total; i++) {
+    // Fibonacci-sphere-ish distribution scaled by random radius for a clustered look
+    const t = total > 1 ? i / (total - 1) : 0.5;
+    const phi = Math.acos(1 - 2 * t);
+    const theta = Math.PI * (1 + Math.sqrt(5)) * i;
+    const r = packRadius * (0.35 + 0.65 * Math.cbrt(Math.random()));
+    const mesh = new THREE.Mesh(
+      types[i] === 'p' ? protonGeo : neutronGeo,
+      types[i] === 'p' ? protonMat : neutronMat
+    );
+    mesh.position.set(
+      r * Math.sin(phi) * Math.cos(theta),
+      r * Math.sin(phi) * Math.sin(theta),
+      r * Math.cos(phi)
+    );
+    nucleusGroup.add(mesh);
+  }
+  atom.add(nucleusGroup);
+  return packRadius;
+}
+
+function makeTrail() {
+  const len = 40;
+  const positions = new Float32Array(len * 3);
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  const mat = new THREE.LineBasicMaterial({ color: 0x6fd0ff, transparent: true, opacity: 0.35 });
+  const line = new THREE.Line(geo, mat);
+  line.frustumCulled = false;
+  return { line, positions, len, head: 0, count: 0, history: [] };
+}
+
+function buildElectrons(shells, baseRadius) {
+  electrons.forEach(e => { atom.remove(e.trail.line); });
+  orbitRings.forEach(r => atom.remove(r));
+  electrons = [];
+  orbitRings = [];
+
+  shells.forEach((numElectrons, shellIndex) => {
+    const radius = baseRadius + 2.4 + shellIndex * 2.3;
+
+    // Orbit ring guide
+    const ringGeo = new THREE.TorusGeometry(radius, 0.02, 8, 120);
+    const ringMat = new THREE.MeshBasicMaterial({ color: 0x3a5cff, transparent: true, opacity: 0.28 });
+
+    for (let i = 0; i < numElectrons; i++) {
+      // Give each electron its own tilted orbital plane
+      const tiltX = (shellIndex * 0.5) + (i / numElectrons) * Math.PI;
+      const tiltZ = (i * 1.7) + shellIndex * 0.9;
+      const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(tiltX, 0, tiltZ));
+
+      const ring = new THREE.Mesh(ringGeo, ringMat.clone());
+      ring.quaternion.copy(q);
+      ring.visible = state.showOrbits;
+      atom.add(ring);
+      orbitRings.push(ring);
+
+      const mesh = new THREE.Mesh(electronGeo, electronMat);
+      atom.add(mesh);
+
+      const trail = makeTrail();
+      atom.add(trail.line);
+
+      electrons.push({
+        mesh,
+        radius,
+        speed: (0.6 + Math.random() * 0.5) * (1.6 / (shellIndex + 1)),
+        phase: Math.random() * Math.PI * 2,
+        q,
+        trail,
+      });
+    }
+  });
+}
+
+let currentGlowBase = 10;
+
+function loadElement(el) {
+  atom.remove(nucleusGroup);
+  nucleusGroup = new THREE.Group();
+  const packRadius = buildNucleus(el.protons, el.neutrons);
+  currentGlowBase = Math.max(7, packRadius * 5.5);
+  buildElectrons(el.shells, packRadius);
+
+  document.getElementById('protons').textContent = el.protons;
+  document.getElementById('neutrons').textContent = el.neutrons;
+  document.getElementById('electrons').textContent = el.shells.reduce((a, b) => a + b, 0);
+}
+
+// ---------- UI: element buttons ----------
+const elContainer = document.getElementById('elements');
+let activeElBtn = null;
+ELEMENTS.forEach((el, idx) => {
+  const btn = document.createElement('button');
+  btn.className = 'elem-btn';
+  btn.innerHTML = `<span class="sym">${el.sym}</span><span class="nm">${el.name}<small>Z = ${el.protons}</small></span>`;
+  btn.addEventListener('click', () => {
+    loadElement(el);
+    if (activeElBtn) activeElBtn.classList.remove('active');
+    btn.classList.add('active');
+    activeElBtn = btn;
+  });
+  elContainer.appendChild(btn);
+  if (idx === 2) { btn.classList.add('active'); activeElBtn = btn; } // default Carbon
+});
+
+// ---------- UI: sliders & toggles ----------
+const speedEl = document.getElementById('speed');
+const glowEl = document.getElementById('glow');
+speedEl.addEventListener('input', () => {
+  state.speed = parseFloat(speedEl.value);
+  document.getElementById('speedVal').textContent = state.speed.toFixed(2) + '×';
+});
+glowEl.addEventListener('input', () => {
+  state.glow = parseFloat(glowEl.value);
+  document.getElementById('glowVal').textContent = Math.round(state.glow * 100) + '%';
+});
+
+function bindToggle(id, key, onChange) {
+  const btn = document.getElementById(id);
+  btn.addEventListener('click', () => {
+    state[key] = !state[key];
+    btn.classList.toggle('active', state[key]);
+    if (onChange) onChange(state[key]);
+  });
+}
+bindToggle('tOrbits', 'showOrbits', v => orbitRings.forEach(r => r.visible = v));
+bindToggle('tSpin', 'spin');
+bindToggle('tTrails', 'trails', v => electrons.forEach(e => {
+  e.trail.line.visible = v;
+  if (!v) { e.trail.count = 0; e.trail.history = []; }
+}));
+
+// ---------- Animation ----------
+const clock = new THREE.Clock();
+const tmp = new THREE.Vector3();
+
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.05);
+  const t = clock.elapsedTime;
+
+  // Nucleus subtle wobble
+  nucleusGroup.rotation.y += dt * 0.3;
+  nucleusGroup.rotation.x += dt * 0.12;
+
+  // Glow pulse
+  const pulse = currentGlowBase * (1 + Math.sin(t * 2) * 0.04) * state.glow;
+  glowSprite.scale.set(pulse, pulse, 1);
+  glowSprite.material.opacity = 0.85 * Math.min(1, state.glow);
+
+  // Electrons
+  for (const e of electrons) {
+    e.phase += dt * e.speed * state.speed * 1.6;
+    tmp.set(Math.cos(e.phase) * e.radius, Math.sin(e.phase) * e.radius, 0);
+    tmp.applyQuaternion(e.q);
+    e.mesh.position.copy(tmp);
+
+    if (state.trails) {
+      const h = e.trail.history;
+      h.push(tmp.x, tmp.y, tmp.z);
+      if (h.length > e.trail.len * 3) h.splice(0, h.length - e.trail.len * 3);
+      const arr = e.trail.positions;
+      const pts = h.length / 3;
+      for (let i = 0; i < e.trail.len; i++) {
+        const src = (i < pts) ? (h.length - (pts - i) * 3) : 0;
+        arr[i * 3]     = h[src] ?? tmp.x;
+        arr[i * 3 + 1] = h[src + 1] ?? tmp.y;
+        arr[i * 3 + 2] = h[src + 2] ?? tmp.z;
+      }
+      e.trail.line.geometry.attributes.position.needsUpdate = true;
+      e.trail.line.geometry.setDrawRange(0, Math.min(pts, e.trail.len));
+    }
+  }
+
+  if (state.spin) atom.rotation.y += dt * 0.15;
+
+  controls.update();
+  renderer.render(scene, camera);
+}
+
+// ---------- Resize ----------
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// ---------- Go ----------
+loadElement(ELEMENTS[2]); // Carbon
+animate();
+</script>
+</body>
+</html>
